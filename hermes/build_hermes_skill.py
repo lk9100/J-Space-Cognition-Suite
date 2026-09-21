@@ -62,8 +62,8 @@ fast pass needs no machinery. If you loaded this skill, start with the premise s
 ## Hermes Notes
 
 - Invoke the controller through the `terminal` tool (Python 3.10+):
-  `<python-command> ${{HERMES_SKILL_DIR}}/scripts/jspace.py ...` — Hermes substitutes
-  `${{HERMES_SKILL_DIR}}` with this skill's absolute path at load time.
+  `<python-command> ${HERMES_SKILL_DIR}/scripts/jspace.py ...` — Hermes substitutes
+  `${HERMES_SKILL_DIR}` with this skill's absolute path at load time.
 - Keep the ledger with the task, not this directory: pass `--root TASK_DIRECTORY` or
   set the terminal working directory to the task folder (default working directory is
   the session cwd, which wanders; `.jspace/` files have been seen in `$HOME`).
@@ -184,14 +184,16 @@ if __name__ == "__main__":
 
 
 def build_version() -> str:
+    """Semantic version = upstream tag (stable across our adaptation commits)."""
     import subprocess
-    try:
-        desc = subprocess.run(
-            ["git", "-C", str(REPO), "describe", "--tags", "--always"],
-            capture_output=True, text=True, check=True).stdout.strip()
-        return desc
-    except Exception:
-        return "unknown"
+    for ref in ("origin/main", "HEAD"):
+        try:
+            return subprocess.run(
+                ["git", "-C", str(REPO), "describe", "--tags", "--always", ref],
+                capture_output=True, text=True, check=True).stdout.strip()
+        except Exception:
+            continue
+    return "unknown"
 
 
 def sha256_file(p: Path) -> str:
