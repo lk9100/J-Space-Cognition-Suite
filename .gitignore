@@ -4,3 +4,6 @@
 # Python caches
 __pycache__/
 *.py[cod]
+
+# Hermes build output (generated)
+hermes/out/
