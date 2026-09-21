@@ -5,5 +5,8 @@
 __pycache__/
 *.py[cod]
 
+# macOS
+**/.DS_Store
+
 # Hermes build output (generated)
 hermes/out/

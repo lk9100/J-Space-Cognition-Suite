@@ -44,9 +44,11 @@ FRONTMATTER_EXTRA = """version: {version}
 author: Tiger3807861189 (Upstream), Hermes Agent (adaptation)
 license: Apache-2.0
 platforms: [linux, macos, windows]
+required_commands: [python3]
 metadata:
   hermes:
     tags: [reasoning, workspace, long-horizon, verification, ledger]
+    requires_toolsets: [terminal]
 """
 
 # Inserted right after the frontmatter, before the upstream body (which starts with # J-Space).
@@ -142,7 +144,8 @@ def main() -> int:
         findings.append("description missing")
     elif len(m.group(1)) > 60:
         findings.append(f"description is {{len(m.group(1))}} chars (budget 60)")
-    for key in ("version:", "author:", "license:", "platforms:", "metadata:", "tags:"):
+    for key in ("version:", "author:", "license:", "platforms:", "required_commands:",
+                "metadata:", "tags:", "requires_toolsets:"):
         if key not in text:
             findings.append(f"frontmatter missing {{key}}")
 

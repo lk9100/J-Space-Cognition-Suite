@@ -10,6 +10,11 @@ cd "$REPO"
 # --- fetch upstream --------------------------------------------------------
 git fetch origin main --quiet 2>/dev/null || { echo "ERROR: git fetch failed"; exit 1; }
 
+# --- ensure we operate on the adaptation branch (it carries hermes/ + report) ---
+if git rev-parse --verify -q hermes-adapt >/dev/null; then
+  git checkout -q hermes-adapt
+fi
+
 # --- quick path: already current AND built at current HEAD -----------------
 LOCAL=$(git rev-parse --short HEAD)
 META_UPSTREAM=""
@@ -56,3 +61,6 @@ else
   echo "  mv $LINK $LINK.bak && ln -s $REPO/hermes/out/j-space $LINK"
 fi
 echo "note: new skill content takes effect in the NEXT Hermes session (loader caches at session start)."
+
+# --- keep the fork (sole maintenance home) in sync --------------------------
+git push fork hermes-adapt --quiet 2>/dev/null || echo "WARN: could not push hermes-adapt to fork; check git remote fork"
