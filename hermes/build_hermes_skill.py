@@ -14,7 +14,8 @@ This script (idempotent, stdlib-only) produces `hermes/out/j-space/`:
                                 `${HERMES_SKILL_DIR}` (Hermes substitutes it at load time).
   - references/                 all upstream modules/ (13) + references/ (7), links rewritten
                                 (`modules/X` -> `references/X`, `../references/X` -> `X`).
-  - scripts/                    upstream scripts verbatim + verify_suite_hermes.py
+  - scripts/                    upstream scripts with skill-root path rewrite (`modules/X`
+                                -> `references/X`), + verify_suite_hermes.py
   - LICENSE, CITATION.cff, THIRD_PARTY_NOTICES.md
 
 Never edits upstream files. Never touches ~/.hermes. Deploy (symlink) is done by sync.sh.
@@ -99,6 +100,17 @@ def rewrite_links(text: str) -> str:
     return text
 
 
+def rewrite_script_links(text: str) -> str:
+    """Adapt skill-root-relative paths inside scripts for the merged layout.
+
+    Scripts keep their directory (scripts/), so only the directory move applies:
+    upstream's top-level ``modules/`` merged into ``references/``. A bare ``modules/X``
+    inside a script resolves against the skill root and must follow it (control.py's
+    default module table and its repository/cyber detector; observed 2026-09-23:
+    controller init BLOCKed on 'Missing path: modules/capacity.md')."""
+    return re.sub(r"(?<![\w.-])modules/", "references/", text)
+
+
 def generate_verify_hermes(module_names: list[str], ref_names: list[str]) -> str:
     """Render scripts/verify_suite_hermes.py — verifier for the generated Hermes layout.
 
@@ -115,7 +127,7 @@ Checks (all findings fail non-zero):
   1. SKILL.md frontmatter: name=j-space, description <= 60 chars, Hermes metadata present.
   2. references/ holds exactly the upstream modules + references (merged manifest).
   3. No stale upstream link forms anywhere in SKILL.md or references/.
-  4. Controller scripts present.
+  4. Scripts present; unresolved modules/ references inside scripts fail.
 Exit 0 clean, 1 with findings. Standard library only.
 """
 
@@ -167,10 +179,19 @@ def main() -> int:
     if stale:
         findings.append("stale links: " + "; ".join(stale))
 
-    # 4. scripts
+    # 4. scripts: present, no unresolved modules/ references (must be rewritten;
+    #    the verifier itself necessarily contains the literal it checks for)
     for s in ("jspace.py", "control.py", "host_bridge.py", "verify_suite.py"):
         if not (ROOT / "scripts" / s).exists():
             findings.append(f"missing scripts/{{s}}")
+    stale_scripts = []
+    for p in sorted((ROOT / "scripts").iterdir()):
+        if p.name == "verify_suite_hermes.py" or p.suffix not in (".py", ".md"):
+            continue
+        if "modules/" in p.read_text(encoding="utf-8"):
+            stale_scripts.append(p.name)
+    if stale_scripts:
+        findings.append("scripts with unresolved modules/ references: " + ", ".join(stale_scripts))
 
     if findings:
         print("verify_suite_hermes: " + str(len(findings)) + " finding(s)")
@@ -242,11 +263,15 @@ def main() -> int:
             write_text(out / "references" / f.name, rewrite_links(read_text(f)))
             n_files += 1
 
-    # --- scripts/ verbatim + hermes variant of the verifier ---------------
+    # --- scripts/ (path rewrite) + hermes variant of the verifier ---------
     (out / "scripts").mkdir(parents=True, exist_ok=True)
     for f in (upstream / "scripts").glob("*"):
         if f.is_file():
-            shutil.copy2(f, out / "scripts" / f.name)
+            if f.suffix in (".py", ".md"):
+                # Scripts keep their directory; only the modules/ -> references/ move applies.
+                write_text(out / "scripts" / f.name, rewrite_script_links(read_text(f)))
+            else:
+                shutil.copy2(f, out / "scripts" / f.name)
             n_files += 1
     # verify_suite_hermes.py: independent verifier for the generated (Hermes) layout.
     module_names = sorted(f.stem for f in (upstream / "modules").glob("*.md"))
