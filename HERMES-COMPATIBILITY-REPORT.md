@@ -120,7 +120,7 @@ Deployed as `~/.hermes/skills/j-space` → symlink to the build output, refreshe
 All adaptation code is Apache-2.0, same as upstream. Happy to open a PR against the
 upstream repository if any of the above is welcome.
 
-## Update: goal-mechanism integration (2026-10-09)
+## Update: goal-mechanism integration (2026-10-10)
 
 `hermes/jspace_goal.py` now connects the suite to the host's own goal mechanism. It
 writes the same per-session goal state that `/goal` writes, and it adds the suite ship
