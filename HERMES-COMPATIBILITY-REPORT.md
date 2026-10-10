@@ -119,3 +119,14 @@ Deployed as `~/.hermes/skills/j-space` → symlink to the build output, refreshe
 
 All adaptation code is Apache-2.0, same as upstream. Happy to open a PR against the
 upstream repository if any of the above is welcome.
+
+## Update: goal-mechanism integration (2026-10-09)
+
+`hermes/jspace_goal.py` now connects the suite to the host's own goal mechanism. It
+writes the same per-session goal state that `/goal` writes, and it adds the suite ship
+check (`control.py check --stage ship`) as a Hermes quality gate. The host runs the gate
+before judging the goal after every turn. A failing gate short-circuits the judge, and
+its output becomes the next turn's evidence. The goal and loop layer is no longer
+"cooperative only". The remaining `host_bridge` events (`before_work`, `after_tool`,
+`before_ship`) stay cooperative for now. A later Hermes plugin or shell hook can wire
+them.
