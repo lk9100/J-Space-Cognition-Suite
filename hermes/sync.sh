@@ -7,6 +7,23 @@ set -euo pipefail
 REPO="$HOME/code/j-space-cognition-suite"
 cd "$REPO"
 
+# --- fork sync helper (runs on both the quick and the slow path) -----------
+# A pure local adaptation commit changes no upstream state, so the quick path
+# must still publish it to the fork; the slow path pushes after its rebuild.
+sync_fork() {
+  git fetch -q fork 2>/dev/null || { echo "WARN: could not fetch fork; skipping fork sync check"; return 0; }
+  local ahead
+  ahead=$(git rev-list --count fork/hermes-adapt..hermes-adapt 2>/dev/null || echo 0)
+  case "$ahead" in (''|*[!0-9]*) ahead=0 ;; esac
+  if [ "$ahead" -gt 0 ]; then
+    if git push -q fork hermes-adapt 2>/dev/null; then
+      echo "fork: pushed $ahead commit(s) to hermes-adapt"
+    else
+      echo "WARN: could not push hermes-adapt to fork; check git remote fork"
+    fi
+  fi
+}
+
 # --- fetch upstream --------------------------------------------------------
 git fetch origin main --quiet 2>/dev/null || { echo "ERROR: git fetch failed"; exit 1; }
 
@@ -22,6 +39,7 @@ if [ -f hermes/out/j-space/.build-meta.json ]; then
   META_UPSTREAM=$(python3 -c "import json;print(json.load(open('hermes/out/j-space/.build-meta.json'))['upstream_commit'])" 2>/dev/null || true)
 fi
 if git merge-base --is-ancestor origin/main HEAD && [ "$META_UPSTREAM" = "$LOCAL" ]; then
+  sync_fork   # still publish local-only adaptation commits to the fork
   exit 0   # silent: nothing changed since last build
 fi
 
@@ -63,4 +81,4 @@ fi
 echo "note: new skill content takes effect in the NEXT Hermes session (loader caches at session start)."
 
 # --- keep the fork (sole maintenance home) in sync --------------------------
-git push fork hermes-adapt --quiet 2>/dev/null || echo "WARN: could not push hermes-adapt to fork; check git remote fork"
+sync_fork
