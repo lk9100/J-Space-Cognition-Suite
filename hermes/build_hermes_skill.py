@@ -76,6 +76,30 @@ fast pass needs no machinery. If you loaded this skill, start with the premise s
   `hermes/sync.sh` (cron). Do not hand-edit; edits are overwritten on the next build.
 """
 
+HERMES_GOAL_SECTION = """## Hermes Goal Mechanism (required)
+
+Hermes owns the standing goal and the keep-working loop. This suite supplies the
+durable ledger and the deterministic checks. On Hermes, a j-space task at `high` or
+`xhigh` runs under a Hermes goal. Do not keep a parallel goal concept.
+
+1. Set the goal when the task opens. The bridge writes the same session-scoped store
+   that `/goal` uses. The host then judges the goal after every turn.
+
+       <python3> ${HERMES_SKILL_DIR}/scripts/jspace_goal.py set --goal "<controller goal>" --verification "<what proves the outcome>" --constraints "<what must not regress>" --boundaries "<task directory>" --stop-when "<when to stop and ask>"
+
+2. Add the suite ship check as a quality gate. The gate is deterministic. The judge
+   cannot declare the goal done while the gate fails. The gate output becomes the next
+   turn's evidence.
+
+       <python3> ${HERMES_SKILL_DIR}/scripts/jspace_goal.py gate add --ship-check --task "<task directory>"
+
+3. Inspect state with `jspace_goal.py status`. Control the loop with `pause`, `resume`,
+   and `clear`. On re-entry, pass `--if-absent` to `set` so a running goal stays.
+
+If the bridge reports the session store is unreachable, ask the user to set the same
+goal once with `/goal` and `/goal gate add`, then continue.
+"""
+
 
 def read_text(p: Path) -> str:
     return p.read_text(encoding="utf-8")
@@ -181,7 +205,7 @@ def main() -> int:
 
     # 4. scripts: present, no unresolved modules/ references (must be rewritten;
     #    the verifier itself necessarily contains the literal it checks for)
-    for s in ("jspace.py", "control.py", "host_bridge.py", "verify_suite.py"):
+    for s in ("jspace.py", "control.py", "host_bridge.py", "verify_suite.py", "jspace_goal.py"):
         if not (ROOT / "scripts" / s).exists():
             findings.append(f"missing scripts/{{s}}")
     stale_scripts = []
@@ -253,7 +277,7 @@ def main() -> int:
         f"{FRONTMATTER_EXTRA.format(version=version)}"
         "---\n"
     )
-    new_skill = fm + "\n" + WHEN_TO_USE + "\n" + rewrite_links(body)
+    new_skill = fm + "\n" + WHEN_TO_USE + "\n" + HERMES_GOAL_SECTION + "\n" + rewrite_links(body)
     write_text(out / "SKILL.md", new_skill)
 
     # --- references/: modules + references, links rewritten ---------------
@@ -277,6 +301,13 @@ def main() -> int:
     module_names = sorted(f.stem for f in (upstream / "modules").glob("*.md"))
     ref_names = sorted(f.stem for f in (upstream / "references").glob("*.md"))
     write_text(out / "scripts" / "verify_suite_hermes.py", generate_verify_hermes(module_names, ref_names))
+    n_files += 1
+    # jspace_goal.py: Hermes goal-mechanism bridge (ships with the skill).
+    goal_bridge = repo / "hermes" / "jspace_goal.py"
+    if not goal_bridge.is_file():
+        print(f"ERROR: missing {goal_bridge}", file=sys.stderr)
+        return 1
+    shutil.copy2(goal_bridge, out / "scripts" / "jspace_goal.py")
     n_files += 1
 
     # --- legal files -------------------------------------------------------
